@@ -23,7 +23,7 @@ import kotlinx.coroutines.launch
 class MainActivity : AppCompatActivity() {
 
     private lateinit var adapter: MessageAdapter
-    private var loadDataJob: Job? = null
+    private var loadDataJob: Job? = null // Coroutine job to manage data loading
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -32,10 +32,12 @@ class MainActivity : AppCompatActivity() {
         checkPermission()
         ignoreBatteryOptimization()
 
+        // Button to Add App for tracking
         findViewById<LinearLayout>(R.id.btnUiAddApp).setOnClickListener {
             startActivity(Intent(this, SelectAppActivity::class.java))
         }
 
+        // Initialize Message List RecyclerView
         val recyclerView = findViewById<RecyclerView>(R.id.recyclerView)
         adapter = MessageAdapter(onClick = { senderName ->
             val intent = Intent(this, DetailActivity::class.java)
@@ -47,7 +49,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        // Chỉ cần gọi setupHeaderList, hàm này sẽ tự động load tin nhắn cho App đầu tiên
+        // Reload Header when returning to this screen
         setupHeaderList()
     }
 
@@ -57,10 +59,10 @@ class MainActivity : AppCompatActivity() {
 
         val selectedPackages = AppPreferences.getSelectedPackages(this).toList()
 
-        // Chọn App đầu tiên làm mặc định nếu có
+        // DEFAULT LOGIC: Select the first app in the list if it exists
         val defaultApp = selectedPackages.firstOrNull()
 
-        // Load tin nhắn: Nếu có app được chọn thì lọc theo app đó, nếu không có app nào thì hiện "ALL" (hoặc trống)
+        // Load messages for the first app by default
         loadMessages(defaultApp ?: "ALL")
 
         val headerAdapter = HeaderAdapter(
@@ -73,17 +75,23 @@ class MainActivity : AppCompatActivity() {
         recyclerHeader.adapter = headerAdapter
     }
 
+    /**
+     * Loads messages filtered by package name.
+     * @param filterPackage The package name of the app to filter messages from.
+     */
     private fun loadMessages(filterPackage: String) {
+        // Cancel the previous job to avoid overlapping data loads
         loadDataJob?.cancel()
         val db = AppDatabase.Companion.getDatabase(this)
 
         loadDataJob = lifecycleScope.launch {
             if (filterPackage == "ALL") {
+                // Fetch all sender messages if no specific app is selected
                 db.messageDao().getListSenders().collect { list ->
                     adapter.submitList(list)
                 }
             } else {
-                // Chỉ lấy tin nhắn của đúng Package Name được truyền vào
+                // Fetch messages for a specific app package
                 db.messageDao().getListSendersByApp(filterPackage).collect { list ->
                     adapter.submitList(list)
                 }

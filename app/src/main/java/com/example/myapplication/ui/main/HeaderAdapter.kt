@@ -10,6 +10,10 @@ import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
 import com.example.myapplication.R
 
+/**
+ * Adapter for the horizontal app list in the main header.
+ * Allows users to filter messages by selecting a specific application.
+ */
 class HeaderAdapter(
     private val packageNames: List<String>,
     private val packageManager: PackageManager,
@@ -33,6 +37,7 @@ class HeaderAdapter(
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
         val packageName = packageNames[position]
 
+        // Fetch and display app information (Name and Icon)
         try {
             val appInfo = packageManager.getApplicationInfo(packageName, 0)
             holder.tvName.text = packageManager.getApplicationLabel(appInfo)
@@ -42,7 +47,7 @@ class HeaderAdapter(
             holder.imgIcon.setImageResource(android.R.drawable.sym_def_app_icon)
         }
 
-        // Logic tích xanh
+        // Selection indicator (green checkmark) logic
         if (packageName == selectedPackage) {
             holder.imgCheck.visibility = View.VISIBLE
             holder.imgCheck.setColorFilter(Color.parseColor("#4CAF50"))
@@ -51,7 +56,7 @@ class HeaderAdapter(
         }
 
         holder.itemView.setOnClickListener {
-            // NẾU CLICK VÀO APP ĐANG ĐƯỢC CHỌN THÌ KHÔNG LÀM GÌ CẢ (KHÔNG CHO BỎ CHỌN)
+            // If the currently selected app is clicked, do nothing (prevent deselecting)
             if (selectedPackage != packageName) {
                 selectedPackage = packageName
                 onAppClick(packageName)

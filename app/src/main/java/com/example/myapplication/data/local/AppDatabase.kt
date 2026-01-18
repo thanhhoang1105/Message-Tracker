@@ -7,7 +7,10 @@ import androidx.room.RoomDatabase
 import com.example.myapplication.data.local.entities.Message
 import com.example.myapplication.data.local.MessageDao
 
-// 1. SỬA VERSION TỪ 1 THÀNH 2
+/**
+ * Main database class for the application.
+ * Defines the entities and the database version.
+ */
 @Database(entities = [Message::class], version = 2)
 abstract class AppDatabase : RoomDatabase() {
 
@@ -17,6 +20,9 @@ abstract class AppDatabase : RoomDatabase() {
         @Volatile
         private var INSTANCE: AppDatabase? = null
 
+        /**
+         * Returns a singleton instance of the AppDatabase.
+         */
         fun getDatabase(context: Context): AppDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -24,7 +30,8 @@ abstract class AppDatabase : RoomDatabase() {
                     AppDatabase::class.java,
                     "messenger_saver_db"
                 )
-                    // 2. THÊM DÒNG NÀY: Cho phép xóa dữ liệu cũ nếu lệch phiên bản
+                    // Allows Room to destructively recreate database tables 
+                    // if migrations are not found when the version is incremented.
                     .fallbackToDestructiveMigration()
                     .build()
 

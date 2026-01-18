@@ -19,38 +19,38 @@ class DetailActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_detail)
 
-        // 1. Nhận tên người gửi
+        // 1. Get sender's name from Intent
         val senderName = intent.getStringExtra("SENDER_NAME") ?: return
 
-        // 2. Khởi tạo các View trên Header
+        // 2. Initialize Header views
         val btnBack = findViewById<ImageButton>(R.id.btnBack)
         val tvHeaderName = findViewById<TextView>(R.id.tvHeaderName)
         val imgHeaderAvatar = findViewById<ImageView>(R.id.imgHeaderAvatar)
 
-        // Gán tên và xử lý nút Back
+        // Set name and handle Back button click
         tvHeaderName.text = senderName
         btnBack.setOnClickListener {
-            finish() // Đóng màn hình hiện tại để quay về màn hình trước
+            finish() // Close current activity to return to the previous screen
         }
 
-        // 3. Cài đặt RecyclerView (Danh sách chat)
+        // 3. Setup RecyclerView (Chat list)
         val recyclerView = findViewById<RecyclerView>(R.id.recyclerDetail)
-        // stackFromEnd = true: Để tin nhắn luôn bắt đầu từ dưới lên (giống Messenger)
+        // stackFromEnd = true: Ensures messages start from the bottom (similar to Messenger/WhatsApp)
         val layoutManager = LinearLayoutManager(this).apply { stackFromEnd = true }
         recyclerView.layoutManager = layoutManager
 
         val adapter = DetailAdapter()
         recyclerView.adapter = adapter
 
-        // 4. Load dữ liệu từ Database
+        // 4. Load data from Database
         val db = AppDatabase.Companion.getDatabase(this)
         lifecycleScope.launch {
             db.messageDao().getMessagesBySender(senderName).collect { listMessages ->
-                // Cập nhật danh sách tin nhắn
+                // Update message list in adapter
                 adapter.submitList(listMessages)
 
-                // --- XỬ LÝ HIỆN AVATAR LÊN HEADER ---
-                // Lấy tin nhắn đầu tiên (hoặc bất kỳ tin nào) để lấy avatar
+                // --- HANDLE HEADER AVATAR DISPLAY ---
+                // Retrieve avatar from the first available message
                 if (listMessages.isNotEmpty()) {
                     val firstMessage = listMessages[0]
                     if (firstMessage.avatar != null) {
@@ -62,8 +62,8 @@ class DetailActivity : AppCompatActivity() {
                         }
                     }
 
-                    // Tự động cuộn xuống tin nhắn mới nhất
-                    // (Sử dụng post để đảm bảo giao diện đã vẽ xong mới cuộn)
+                    // Automatically scroll to the latest message
+                    // (Use post to ensure the UI has finished rendering before scrolling)
                     recyclerView.post {
                         recyclerView.scrollToPosition(listMessages.size - 1)
                     }

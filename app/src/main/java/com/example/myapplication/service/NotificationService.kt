@@ -16,6 +16,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.io.ByteArrayOutputStream
 
+/**
+ * Background service that listens for incoming notifications and saves them to the database.
+ */
 class NotificationService : NotificationListenerService() {
 
     override fun onNotificationPosted(sbn: StatusBarNotification?) {
@@ -24,29 +27,30 @@ class NotificationService : NotificationListenerService() {
 
         val packageName = sbn.packageName
 
-        // Kiểm tra xem App này có được phép lưu không
+        // Check if this app is selected for monitoring
         val allowedApps = AppPreferences.getSelectedPackages(applicationContext)
 
         if (allowedApps.contains(packageName)) {
             val extras = sbn.notification.extras
 
+            // Handle conversation title (Group name or Sender name)
             var finalTitle = extras.getCharSequence(Notification.EXTRA_CONVERSATION_TITLE)?.toString()
             if (finalTitle.isNullOrEmpty()) {
-                finalTitle = extras.getString(Notification.EXTRA_TITLE) ?: "Không tên"
+                finalTitle = extras.getString(Notification.EXTRA_TITLE) ?: "Unknown"
             }
 
             val text = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString() ?: ""
             val postTime = sbn.postTime
 
-            // Lọc tin rác
+            // Filter out system or junk notifications
             if (finalTitle == "Messenger" ||
-                text.contains("Bong bóng chat") ||
-                text.contains("Đang hoạt động") ||
+                text.contains("Chat head") ||
+                text.contains("Active now") ||
                 text.isEmpty()) {
                 return
             }
 
-            // Xử lý Avatar
+            // Process Avatar icon
             var avatarBytes: ByteArray? = null
             try {
                 val largeIcon = sbn.notification.getLargeIcon()
@@ -55,29 +59,32 @@ class NotificationService : NotificationListenerService() {
                     avatarBytes = bitmapToBytes(bitmap)
                 }
             } catch (e: Exception) {
-                Log.e("MSG_SAVER", "Lỗi lấy avatar: ${e.message}")
+                Log.e("MSG_SAVER", "Error fetching avatar: ${e.message}")
             }
 
-            // --- QUAN TRỌNG: Lưu thêm packageName ---
+            // Save message to database
             val newMessage = Message(
                 sender = finalTitle,
                 content = text,
                 time = postTime,
                 avatar = avatarBytes,
-                packageName = packageName // Lưu tên gói (ví dụ: com.zing.zalo)
+                packageName = packageName // Store package name for filtering (e.g., com.zing.zalo)
             )
 
             val db = AppDatabase.Companion.getDatabase(applicationContext)
             CoroutineScope(Dispatchers.IO).launch {
                 db.messageDao().insert(newMessage)
 
-                // Tự động xóa tin cũ quá 24h (nếu muốn)
+                // Optional: Automatically delete messages older than 24 hours
                 // val oneDayAgo = System.currentTimeMillis() - 86400000
                 // db.messageDao().deleteOldMessages(oneDayAgo)
             }
         }
     }
 
+    /**
+     * Converts a notification Icon to a Bitmap.
+     */
     private fun loadBitmapFromIcon(icon: Icon): Bitmap? {
         val drawable = icon.loadDrawable(this) ?: return null
         if (drawable is BitmapDrawable) return drawable.bitmap
@@ -88,6 +95,9 @@ class NotificationService : NotificationListenerService() {
         return bitmap
     }
 
+    /**
+     * Converts a Bitmap to a ByteArray for storage in Room database.
+     */
     private fun bitmapToBytes(bitmap: Bitmap?): ByteArray? {
         if (bitmap == null) return null
         val stream = ByteArrayOutputStream()

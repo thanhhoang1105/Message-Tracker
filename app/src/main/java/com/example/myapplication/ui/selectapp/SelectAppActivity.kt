@@ -23,6 +23,9 @@ import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream
 import java.util.Locale
 
+/**
+ * Activity to manage which applications are tracked for notifications.
+ */
 class SelectAppActivity : AppCompatActivity() {
 
     private lateinit var adapter: AppSelectionAdapter
@@ -45,13 +48,14 @@ class SelectAppActivity : AppCompatActivity() {
             val savedPackages = AppPreferences.getSelectedPackages(this@SelectAppActivity)
             fullAppList.clear()
 
-            // Quét tất cả ứng dụng
+            // Scan all installed applications
             val allPackages = pm.getInstalledPackages(0)
 
             for (packageInfo in allPackages) {
                 val launchIntent = pm.getLaunchIntentForPackage(packageInfo.packageName)
                 val appInfo = packageInfo.applicationInfo
 
+                // Only add apps that have a launch intent and are not this application itself
                 if (launchIntent != null && appInfo != null && packageInfo.packageName != this@SelectAppActivity.packageName) {
                     val name = appInfo.loadLabel(pm).toString()
                     val icon = appInfo.loadIcon(pm)
@@ -59,13 +63,14 @@ class SelectAppActivity : AppCompatActivity() {
                     fullAppList.add(AppInfo(name, packageInfo.packageName, icon, isSelected))
                 }
             }
+            // Sort list: Selected apps first, then alphabetically by name
             fullAppList.sortWith(compareBy({ !it.isSelected }, { it.name }))
 
             withContext(Dispatchers.Main) {
                 adapter = AppSelectionAdapter(fullAppList) { }
                 recyclerView.adapter = adapter
 
-                // Tìm kiếm
+                // Set up search functionality
                 searchView.setOnQueryTextListener(object : SearchView.OnQueryTextListener {
                     override fun onQueryTextSubmit(query: String?): Boolean = false
                     override fun onQueryTextChange(newText: String?): Boolean {
@@ -74,36 +79,37 @@ class SelectAppActivity : AppCompatActivity() {
                     }
                 })
 
-                // --- XỬ LÝ LƯU (Logic Mới) ---
+                // --- SAVE LOGIC ---
                 btnSave.setOnClickListener {
                     val previouslySelected =
                         AppPreferences.getSelectedPackages(this@SelectAppActivity)
                     val currentSelectedApps = fullAppList.filter { it.isSelected }
                     val currentSelectedPkgs = currentSelectedApps.map { it.packageName }.toSet()
 
+                    // Identify apps that were unselected by the user
                     val unselectedPkgs = previouslySelected - currentSelectedPkgs
 
                     AppPreferences.saveSelectedPackages(this@SelectAppActivity, currentSelectedPkgs)
 
                     val db = AppDatabase.Companion.getDatabase(this@SelectAppActivity)
                     CoroutineScope(Dispatchers.IO).launch {
-                        // 1. Xóa sạch tin nhắn của App bị bỏ chọn (Dùng hàm mới deleteMessagesByPackage)
+                        // 1. Delete messages of apps that have been unselected
                         for (pkg in unselectedPkgs) {
                             db.messageDao().deleteMessagesByPackage(pkg)
                         }
 
-                        // 2. Tạo tin chào mừng cho App MỚI được chọn
+                        // 2. Create a welcome message for NEWLY selected apps
                         val newApps = currentSelectedPkgs - previouslySelected
                         for (app in currentSelectedApps) {
-                            // Chỉ tạo nếu đây là app mới chọn thêm (để tránh spam)
+                            // Only create for newly added apps to prevent spam
                             if (newApps.contains(app.packageName)) {
                                 val avatarBytes = drawableToBytes(app.icon)
                                 val welcomeMsg = Message(
                                     sender = app.name,
-                                    content = "Đã thêm vào danh sách theo dõi ✅",
+                                    content = "Added to tracking list ✅",
                                     time = System.currentTimeMillis(),
                                     avatar = avatarBytes,
-                                    packageName = app.packageName // <-- QUAN TRỌNG: Lưu đúng packageName
+                                    packageName = app.packageName // <-- IMPORTANT: Store the correct packageName
                                 )
                                 db.messageDao().insert(welcomeMsg)
                             }
@@ -112,7 +118,7 @@ class SelectAppActivity : AppCompatActivity() {
                         withContext(Dispatchers.Main) {
                             Toast.makeText(
                                 this@SelectAppActivity,
-                                "Đã cập nhật!",
+                                "Updated successfully!",
                                 Toast.LENGTH_SHORT
                             ).show()
                             finish()
@@ -123,6 +129,9 @@ class SelectAppActivity : AppCompatActivity() {
         }
     }
 
+    /**
+     * Filters the app list based on search query.
+     */
     private fun filterList(query: String?) {
         if (query != null) {
             val searchText = query.lowercase(Locale.ROOT)
@@ -133,6 +142,9 @@ class SelectAppActivity : AppCompatActivity() {
         }
     }
 
+    /**
+     * Converts a Drawable to a ByteArray for storage.
+     */
     private fun drawableToBytes(drawable: Drawable): ByteArray? {
         val bitmap = if (drawable is BitmapDrawable) drawable.bitmap else {
             val b = Bitmap.createBitmap(drawable.intrinsicWidth, drawable.intrinsicHeight, Bitmap.Config.ARGB_8888)

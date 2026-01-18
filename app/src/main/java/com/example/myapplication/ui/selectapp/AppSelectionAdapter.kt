@@ -10,19 +10,27 @@ import androidx.recyclerview.widget.RecyclerView
 import android.graphics.drawable.Drawable
 import com.example.myapplication.R
 
+/**
+ * Data class representing an application's information for selection.
+ */
 data class AppInfo(val name: String, val packageName: String, val icon: Drawable, var isSelected: Boolean)
 
+/**
+ * Adapter for the app selection list.
+ * Allows users to choose which applications to monitor for notifications.
+ */
 class AppSelectionAdapter(
-    private var appList: List<AppInfo>, // Đổi val thành var
+    private var appList: List<AppInfo>, // Changed to var to allow list updates during search
     private val onSelectionChanged: () -> Unit
 ) : RecyclerView.Adapter<AppSelectionAdapter.ViewHolder>() {
 
-    // --- HÀM MỚI: CẬP NHẬT DANH SÁCH KHI TÌM KIẾM ---
+    /**
+     * Updates the displayed list with new data (e.g., during search/filtering).
+     */
     fun updateList(newList: List<AppInfo>) {
         appList = newList
         notifyDataSetChanged()
     }
-    // -------------------------------------------------
 
     class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
         val imgIcon: ImageView = view.findViewById(R.id.imgAppIcon)
@@ -40,6 +48,7 @@ class AppSelectionAdapter(
         holder.tvName.text = app.name
         holder.imgIcon.setImageDrawable(app.icon)
 
+        // Clear listener before setting isChecked to avoid triggering callback during binding
         holder.checkBox.setOnCheckedChangeListener(null)
         holder.checkBox.isChecked = app.isSelected
 
@@ -48,6 +57,7 @@ class AppSelectionAdapter(
             onSelectionChanged()
         }
 
+        // Allow toggling the checkbox by clicking the entire item row
         holder.itemView.setOnClickListener {
             holder.checkBox.isChecked = !holder.checkBox.isChecked
         }
